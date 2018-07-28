@@ -8,6 +8,7 @@ using namespace std;
 #define DOT_MAX 100
 #define THETA_MAX 2000
 #define AXIS_MAX 100
+#define PI 3.1415926535897
 
 typedef struct RobotArm
 {
@@ -51,6 +52,12 @@ TurnTheta turn[AXIS_MAX][AXIS_MAX];
 int Dot_Num = 0;
 double OpWidth[AXIS_MAX];			//Operation Width
 
+void init();
+void arm_init();
+void theta_init();
+void departure_evaluation();
+void read_in();
+void test();
 
 
 void init()
@@ -70,8 +77,8 @@ void arm_init()
 	arm.theta_s1 = 0;
 	arm.theta_s2 = 0;
 	arm.GAP = 50;
-	arm.Rmin = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos(arm.theta_s1 / 180));
-	arm.Rmax = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos((180 - arm.theta_s2) / 180));
+	arm.Rmin = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos(arm.theta_s1/180*PI));
+	arm.Rmax = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos((180 - arm.theta_s2)/180*PI));
 
 	for (int x = 0; x < AXIS_MAX; x++)
 		OpWidth[x] = sqrt(arm.Rmax*arm.Rmax - (x + arm.Rmin)*(x + arm.Rmin));
@@ -86,27 +93,32 @@ void theta_init()
 	int rou=0;
 
 	//Triangle's Interior Angle of possible Arm's Triangle Form
-	for (int i = 0; i <= 1700; i++) {
+	for (int i = arm.Rmin*10; i <arm.Rmax*10; i++) {
 		r = i / 10;
 		theta1[i].r = r;
-		theta1[i].theta = acos((arm.LengthA*arm.LengthA + r*r - arm.LengthB*arm.LengthB) / (2 * arm.LengthA*r));
+		theta1[i].theta = acos((arm.LengthA*arm.LengthA + r*r - arm.LengthB*arm.LengthB) / (2 * arm.LengthA*r))/PI*180;
 		theta2[i].r = r;
-		theta2[i].theta = acos((arm.LengthA*arm.LengthA + arm.LengthB + arm.LengthB - r*r) / (2 * arm.LengthA*arm.LengthB));
+		theta2[i].theta = acos((arm.LengthA*arm.LengthA + arm.LengthB * arm.LengthB - r*r) / (2 * arm.LengthA*arm.LengthB))/PI*180;
 	}
 
 	//Arm's Rotation Angle at Present Point
 	for (int x = 0; x < AXIS_MAX; x++)
 		for (int y = 0; y < AXIS_MAX; y++) {
-			turn[x][y].r = sqrt((x + arm.Rmin)*(x + arm.Rmin) / y);
+
+			turn[x][y].r = sqrt((x + arm.Rmin)*(x + arm.Rmin) + y*y);
+
+			rou = (int)(turn[x][y].r * 10);
+			if (rou<arm.Rmin * 10 || rou>arm.Rmax * 10)  continue;
+
 			if (y > 0) {
-				rou = (int)(turn[x][y].r * 10);
-				turn[x][y].theta_a = 90 - theta1[rou].theta - atan(y / (x + arm.Rmin));
+				turn[x][y].theta_a = 90 - theta1[rou].theta - (atan(y / (x + arm.Rmin))/PI*180);
 				turn[x][y].theta_b = theta2[rou].theta - turn[x][y].theta_a;
 			}
 			else {
-				turn[x][y].theta_b = -90 + theta1[rou].theta + theta2[rou].theta - atan(-y / (x + arm.Rmin));
+				turn[x][y].theta_b = -90 + theta1[rou].theta + theta2[rou].theta - (atan(-y / (x + arm.Rmin))/PI*180);
 				turn[x][y].theta_a = theta1[rou].theta + theta2[rou].theta - turn[x][y].theta_b;
 			}
+			cout << x << "  " << y << "  " << turn[x][y].theta_a << "  "<<turn[x][y].theta_b<<endl;
 		}
 
 	return;
@@ -115,15 +127,21 @@ void theta_init()
 //Departure Solution Evaluation of Object Release
 void departure_evaluation()
 {
-	int min;
+	int min,sign;
+	int now;
 	
 	for (int x = 0; x < AXIS_MAX; x++)
 		for (int y = 0; y < AXIS_MAX; y++) {
 			min = 1000;
-			for (int k = 0; k < AXIS_MAX; k++)
-
+			sign = 0;
+			for (int k = 0; k < AXIS_MAX; k++) {
+				now = abs(turn[x][y].theta_a - turn[0][y].theta_a) + abs(turn[x][y].theta_b - turn[0][y].theta_b);
+				if (now < min) { min = now; sign = k; }
+			}
+			turn[x][y].Departure = sign;
 		}
 
+	return;
 }
 
 //Dot Data Read In
@@ -147,10 +165,26 @@ void read_in()
 	return;
 }
 
+void test()
+{
+	for (int x = 0; x < AXIS_MAX; x++)
+		for (int y = 0; y < AXIS_MAX; y++) {
+			cout << x << "  " << y<<"  ";
+			cout << turn[x][y].theta_a<<"  "<<turn[x][y].theta_b<< endl;
+
+		}
+
+	return;
+}
+
 int main()
 {
 	init();
-	read_in();
+	//read_in();
+
+	//test();
+	int aaa;
+	cin >> aaa;
 
 	return 0;
 }
