@@ -7,7 +7,7 @@ using namespace std;
 
 #define DOT_MAX 100
 #define THETA_MAX 2000
-#define AXIS_MAX 100
+#define AXIS_MAX 170
 #define PI 3.1415926535897
 
 typedef struct RobotArm
@@ -15,6 +15,7 @@ typedef struct RobotArm
 	int LengthA, LengthB;				//LengthA=BigArm  LengthB=SmallArm
 	int theta_s1, theta_s2;				//Gap angle:s1=start  s2=end
 	int GAP;
+	int speed;
 	double Rmin, Rmax;
 
 } RobotArm;
@@ -56,6 +57,7 @@ void init();
 void arm_init();
 void theta_init();
 void departure_evaluation();
+void order_evaluation();
 void read_in();
 void test();
 
@@ -77,6 +79,7 @@ void arm_init()
 	arm.theta_s1 = 0;
 	arm.theta_s2 = 0;
 	arm.GAP = 50;
+	arm.speed = -1;
 	arm.Rmin = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos(arm.theta_s1/180*PI));
 	arm.Rmax = sqrt(arm.LengthA*arm.LengthA + arm.LengthB*arm.LengthB - 2 * arm.LengthA*arm.LengthB*cos((180 - arm.theta_s2)/180*PI));
 
@@ -108,17 +111,17 @@ void theta_init()
 			turn[x][y].r = sqrt((x + arm.Rmin)*(x + arm.Rmin) + y*y);
 
 			rou = (int)(turn[x][y].r * 10);
-			if (rou<arm.Rmin * 10 || rou>arm.Rmax * 10)  continue;
+			if (rou<arm.Rmin * 10 || rou>arm.Rmax * 10)  break;
 
-			if (y > 0) {
+			if (y >= 0) {
 				turn[x][y].theta_a = 90 - theta1[rou].theta - (atan(y / (x + arm.Rmin))/PI*180);
 				turn[x][y].theta_b = theta2[rou].theta - turn[x][y].theta_a;
 			}
-			else {
+			else {  //***
 				turn[x][y].theta_b = -90 + theta1[rou].theta + theta2[rou].theta - (atan(-y / (x + arm.Rmin))/PI*180);
 				turn[x][y].theta_a = theta1[rou].theta + theta2[rou].theta - turn[x][y].theta_b;
 			}
-			cout << x << "  " << y << "  " << turn[x][y].theta_a << "  "<<turn[x][y].theta_b<<endl;
+			//cout << x << "  " << y << "  " << turn[x][y].theta_a << "  "<<turn[x][y].theta_b<<endl;
 		}
 
 	return;
@@ -132,16 +135,32 @@ void departure_evaluation()
 	
 	for (int x = 0; x < AXIS_MAX; x++)
 		for (int y = 0; y < AXIS_MAX; y++) {
+			if (turn[x][y].r<arm.Rmin || turn[x][y].r>arm.Rmax)  break;
+
 			min = 1000;
 			sign = 0;
 			for (int k = 0; k < AXIS_MAX; k++) {
-				now = abs(turn[x][y].theta_a - turn[0][y].theta_a) + abs(turn[x][y].theta_b - turn[0][y].theta_b);
+				now = abs(turn[x][y].theta_a - turn[0][k].theta_a) + abs(turn[x][y].theta_b - turn[0][k].theta_b);
 				if (now < min) { min = now; sign = k; }
 			}
 			turn[x][y].Departure = sign;
+			//cout << x << " " << y << " " << sign<<" "<<min<<endl;
 		}
 
 	return;
+}
+
+//Order of Dot Clamping Evaluation
+void order_evaluation()
+{
+	int tnow=0;
+	//dot's displacement=tnow*arm.speed
+
+	bool dotsign[DOT_MAX];
+	for (int i = 0; i < Dot_Num; i++)
+		dotsign[i] = false;
+
+
 }
 
 //Dot Data Read In
